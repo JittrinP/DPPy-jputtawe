@@ -1,7 +1,8 @@
-number = int(input("please input number :"))
+#!/usr/bin/env python3
+number = float(input("please input number :"))
 if number > 0 :
-    print("This number is more than zero")
+    print("This number is positive")
 elif number < 0 :
-    print("This number is less than zero")
+    print("This number is negative")
 else :
-    print("This number is zero")
+    print("This number is both positive and negative")

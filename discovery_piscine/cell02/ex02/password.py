@@ -4,4 +4,3 @@ if input_password == password :
     print("ACCESS GRANTED")
 else :
     print("ACCESS DENIED")
-    print("test")
