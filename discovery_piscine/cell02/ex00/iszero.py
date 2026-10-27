@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 iszero = int(input("please input number :"))
 if iszero == 0:
     print("This number is zero")
