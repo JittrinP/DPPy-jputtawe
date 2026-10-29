@@ -8,7 +8,3 @@ else :
         print("none")
     else :
         print(len(re.findall(sys.argv[1], sys.argv[2])))
-
-
-
-
