@@ -4,8 +4,14 @@
 
 from datetime import date, timedelta
 
-TODAY = date.today().isoformat()          # e.g. "2026-10-29"
 BOX_WIDTH = 46                            # width of the game board boxes
+BAR_MAX = 10                              # longest leaderboard bar
+
+
+def today():
+    """Return today's date as text, e.g. "2026-10-29".
+    FIX: a function (not a constant) so the date stays correct after midnight."""
+    return date.today().isoformat()
 
 
 def days_ago(n):
@@ -45,7 +51,7 @@ votes = [
     {"user": "mint", "game": 3, "date": days_ago(1)},
     {"user": "ton", "game": 5, "date": days_ago(1)},
     {"user": "fah", "game": 1, "date": days_ago(1)},
-    {"user": "ton", "game": 2, "date": TODAY},
+    {"user": "ton", "game": 2, "date": today()},
 ]
 
 
@@ -89,7 +95,7 @@ def pause():
 def find_today_vote(votes, username):
     """Return this user's vote for today, or None if they have not voted."""
     for vote in votes:
-        if vote["user"] == username and vote["date"] == TODAY:
+        if vote["user"] == username and vote["date"] == today():
             return vote
     return None
 
@@ -113,6 +119,20 @@ def get_ranking(votes, games):
         ranking.append((game_id, totals.get(game_id, 0)))
     ranking.sort(key=lambda item: (-item[1], games[item[0]]["title"]))
     return ranking
+
+
+def get_ranks(ranking):
+    """Return {game_id: rank}. FIX: games with the same votes share a rank
+    (e.g. 1, 2, 2, 4) instead of getting different ranks."""
+    ranks = {}
+    previous_count = None
+    rank = 0
+    for position, (game_id, count) in enumerate(ranking, 1):
+        if count != previous_count:
+            rank = position
+            previous_count = count
+        ranks[game_id] = rank
+    return ranks
 
 
 def search_games(games, keyword):
@@ -156,7 +176,7 @@ def show_games(games):
 def show_welcome_menu():
     print()
     print("=========== GAME OF THE YEAR VOTE ===========")
-    print(f"Today: {TODAY}")
+    print(f"Today: {today()}")
     print("1. View nominated games")
     print("2. Login")
     print("3. Register")
@@ -166,7 +186,7 @@ def show_welcome_menu():
 def show_user_menu(username):
     print()
     print(f"=========== Welcome, {username}! ===========")
-    print(f"Today: {TODAY}")
+    print(f"Today: {today()}")
     if find_today_vote(votes, username) is None:
         print("You have not voted today.")
     else:
@@ -223,7 +243,12 @@ def choose_game(games):
     print()
     for game_id, game in games.items():
         print(f"  {game_id}. {game['title']} ({game['genre']})")
-    return get_int("Choose a game number: ", 1, len(games))
+    # FIX: check the id really exists, so non-consecutive ids never crash
+    while True:
+        game_id = get_int("Choose a game number: ", min(games), max(games))
+        if game_id in games:
+            return game_id
+        print("There is no game with that number.")
 
 
 def cast_vote(votes, games, username):
@@ -232,7 +257,7 @@ def cast_vote(votes, games, username):
         print("You already voted today. Use 'Change today's vote' instead.")
         return
     game_id = choose_game(games)
-    votes.append({"user": username, "game": game_id, "date": TODAY})
+    votes.append({"user": username, "game": game_id, "date": today()})
     print(f"Thank you! You voted for {games[game_id]['title']}.")
 
 
@@ -258,7 +283,7 @@ def cancel_vote(votes, games, username):
         return
     title = games[vote["game"]]["title"]
     answer = get_text(f"Cancel your vote for {title}? (y/n): ")
-    if answer == "y":
+    if answer in ("y", "yes"):           # FIX: accept "yes" too
         votes.remove(vote)
         print("Your vote was cancelled.")
     else:
@@ -276,7 +301,7 @@ def show_history(votes, games, username):
         return
     my_votes.sort(key=lambda vote: vote["date"])
     for vote in my_votes:
-        mark = "  <- today" if vote["date"] == TODAY else ""
+        mark = "  <- today" if vote["date"] == today() else ""
         print(f"{vote['date']}  {games[vote['game']]['title']}{mark}")
     print(f"Total votes: {len(my_votes)}")
 
@@ -291,13 +316,14 @@ def show_all_results(votes, games):
     if total == 0:
         print("No votes yet.")
         return
-    position = 1
+    ranks = get_ranks(ranking)
+    top = ranking[0][1]
     for game_id, count in ranking:
         percent = count * 100 / total
-        bar = "█" * count
+        # FIX: scale the bar so it never gets longer than BAR_MAX
+        bar = "█" * round(count * BAR_MAX / top) if top > 0 else ""
         title = games[game_id]["title"]
-        print(f"{position}. {title:<18} {bar:<10} {count:>2} ({percent:.0f}%)")
-        position += 1
+        print(f"{ranks[game_id]}. {title:<18} {bar:<{BAR_MAX}} {count:>2} ({percent:.0f}%)")
     print(f"Total votes: {total}")
 
 
@@ -308,15 +334,13 @@ def search_result(votes, games):
         print(f"No game matches '{keyword}'.")
         return
     ranking = get_ranking(votes, games)
-    today_totals = count_votes(votes, TODAY)
+    ranks = get_ranks(ranking)
+    totals = dict(ranking)
+    today_totals = count_votes(votes, today())
     total = len(votes)
     for game_id in found:
-        count = 0
-        rank = 0
-        for position, (ranked_id, ranked_count) in enumerate(ranking, 1):
-            if ranked_id == game_id:
-                rank = position
-                count = ranked_count
+        rank = ranks[game_id]
+        count = totals[game_id]
         percent = count * 100 / total if total > 0 else 0
         show_game_card(game_id, games[game_id], [
             f"Rank        : {rank} of {len(games)}",
